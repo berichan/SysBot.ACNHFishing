@@ -59,5 +59,6 @@
 
         // fishing specific offsets
         public const ulong FishBitingOffset = 0xC304CF4;
+        public const ulong IsFishingOffset = 0x14065521;
     }
 }
