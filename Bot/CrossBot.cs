@@ -83,48 +83,58 @@ namespace SysBot.ACNHFishing
             // pull player posrot and store it
             (ExpectedPosition, ExpectedRotation) = await DodoPosition.GetPosRot(OffsetHelper.PlayerCoordJumps, token).ConfigureAwait(false);
 
-            // inject + hold rod
+            // inject + hold rod (first slot) and move cursor to second slot
             await Click(B, 0_400, token).ConfigureAwait(false);
-            await Click(DDOWN, 0_700, token).ConfigureAwait(false);
+            await Click(DDOWN, 1_500, token).ConfigureAwait(false);
             await PocketInjector.Write40(new Item(2377), token).ConfigureAwait(false);
-            await Click(X, 0_400, token).ConfigureAwait(false);
-            await Click(A, 0_400, token).ConfigureAwait(false);
-            await Click(A, 0_400, token).ConfigureAwait(false);
-            await Click(B, 0_400, token).ConfigureAwait(false);
+            await Click(X, 0_800, token).ConfigureAwait(false);
+            await Click(A, 0_800, token).ConfigureAwait(false);
+            await Click(A, 1_800, token).ConfigureAwait(false);
+
+            // move cursor to second slot
+            await Click(X, 0_800, token).ConfigureAwait(false);
+            await Click(DRIGHT, 0_800, token).ConfigureAwait(false);
+            await Click(B, 1_500, token).ConfigureAwait(false);
 
             while (!token.IsCancellationRequested)
                 await FishLoop(token).ConfigureAwait(false);
         }
 
-        // hacked in discord forward, should really be a delegate or resusable forwarder
-        private async Task AttemptEchoHook(string message, IReadOnlyCollection<ulong> channels, CancellationToken token)
-        {
-            foreach (var msgChannel in channels)
-                if (!await Globals.Self.TrySpeakMessage(msgChannel, message).ConfigureAwait(false))
-                    LogUtil.LogError($"Unable to post into channels: {msgChannel}.", Config.IP);
-        }
-
         private async Task FishLoop(CancellationToken token)
         {
-            // Get out of any menus or reel in fish
-            await ClickConversation(B, 1_000, token).ConfigureAwait(false); // Get out of any conversations
+            // Reel in line if we need to
+            if (await IsFishing(token).ConfigureAwait(false))
+                await Click(A, 1_500, token).ConfigureAwait(false);
 
+            // Get out of any menus
+            await ClickConversation(B, 1_000, token).ConfigureAwait(false);
+
+            bool wasInDialogue = false;
             while (await DodoPosition.GetOverworldState(OffsetHelper.PlayerCoordJumps, token).ConfigureAwait(false) is not OverworldState.Overworld)
+            {
+                wasInDialogue = true;
                 await ClickConversation(B, 1_000, token).ConfigureAwait(false); // Get out of any conversations
+            }
+
+            if (wasInDialogue)
+                await Task.Delay(2_000, token).ConfigureAwait(false);
 
             // Ensure we're at our expected position
             (var currentPosition, var currentRotation) = await DodoPosition.GetPosRot(OffsetHelper.PlayerCoordJumps, token).ConfigureAwait(false);
             if (currentPosition.ValuesEqual(ExpectedPosition) || currentRotation != ExpectedRotation)
                 await DodoPosition.SetPosRot(OffsetHelper.PlayerCoordJumps, ExpectedPosition, ExpectedRotation, token).ConfigureAwait(false);
 
+            if (wasInDialogue)
+                await Task.Delay(2_000, token).ConfigureAwait(false);
+
             // Inject bait + reset rod uses, then throw bait
-            await PocketInjector.Write39Plus1(new Item(4549), new Item(2377), token).ConfigureAwait(false);
+            await PocketInjector.Write1Plus39(new Item(2377), new Item(4549), token).ConfigureAwait(false);
             await Click(X, 0_400, token).ConfigureAwait(false);
             for (int i = 0; i < 3; ++i)
                 await Click(A, 0_400, token).ConfigureAwait(false);
 
             // Wait for fishy bait animation
-            await Task.Delay(1_200, token).ConfigureAwait(false);
+            await Task.Delay(2_500, token).ConfigureAwait(false);
 
             // Throw line
             await Click(A, 0_400, token).ConfigureAwait(false);
@@ -132,7 +142,7 @@ namespace SysBot.ACNHFishing
             var caughtSomething = false;
             var sw = new Stopwatch();
             sw.Start();
-            while (!caughtSomething && sw.ElapsedMilliseconds < 45_000)
+            while (!caughtSomething && sw.ElapsedMilliseconds < 20_000)
             {
                 caughtSomething = await IsBiting(token).ConfigureAwait(false);
                 await Task.Delay(0_050, token).ConfigureAwait(false);
@@ -147,15 +157,15 @@ namespace SysBot.ACNHFishing
             for (int i = 0; i < 3; ++i)
                 await Click(A, 0_050, token).ConfigureAwait(false);
 
-            await Task.Delay(1_500, token).ConfigureAwait(false);
+            await Task.Delay(2_000, token).ConfigureAwait(false);
 
             // Go through dialogue
-            for (int i = 0; i < 5; ++i)
-                await ClickConversation(B, 0_400, token).ConfigureAwait(false);
+            for (int i = 0; i < 8; ++i)
+                await ClickConversation(B, 0_800, token).ConfigureAwait(false);
 
             // Log whatever we've caught
             (var result, var inventoryData) = await PocketInjector.Read(token).ConfigureAwait(false);
-            var fishCaught = inventoryData.Where(x => x.ItemId != 2377 && x.ItemId != 4549).FirstOrDefault();
+            var fishCaught = inventoryData.Where(x => !x.IsNone && x.ItemId != 2377 && x.ItemId != 4549).FirstOrDefault();
             if (fishCaught != null) // We can fail to catch the fish
             {
                 var itemName = GameInfo.Strings.GetItemName(fishCaught);
@@ -236,6 +246,7 @@ namespace SysBot.ACNHFishing
                 await Click(B, 0_400, token).ConfigureAwait(false);
         }
 
+        private async Task<bool> IsFishing(CancellationToken token) => (await Connection.ReadBytesAsync((uint)OffsetHelper.IsFishingOffset, 0x1, token).ConfigureAwait(false))[0] == 1;
         private async Task<bool> IsBiting(CancellationToken token) => (await Connection.ReadBytesAsync((uint)OffsetHelper.FishBitingOffset, 0x1, token).ConfigureAwait(false))[0] == 1;
 
         private async Task<bool> GetIsPlayerInventoryValid(uint playerOfs, CancellationToken token)

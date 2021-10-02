@@ -92,7 +92,14 @@ namespace SysBot.ACNHFishing
         public async Task Write39Plus1(Item items39, Item itemEnd, CancellationToken token)
         {
             var itemSet = DeepDuplicateItem(items39, 40);
-            itemSet[40] = itemEnd;
+            itemSet[39] = itemEnd;
+            await Write(itemSet, token).ConfigureAwait(false);
+        }
+
+        public async Task Write1Plus39(Item itemStart, Item items39, CancellationToken token)
+        {
+            var itemSet = DeepDuplicateItem(items39, 40);
+            itemSet[0] = itemStart;
             await Write(itemSet, token).ConfigureAwait(false);
         }
 
