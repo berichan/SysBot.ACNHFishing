@@ -84,10 +84,12 @@ namespace SysBot.ACNHFishing
             (ExpectedPosition, ExpectedRotation) = await DodoPosition.GetPosRot(OffsetHelper.PlayerCoordJumps, token).ConfigureAwait(false);
 
             // inject + hold rod (first slot) and move cursor to second slot
-            await Click(B, 0_400, token).ConfigureAwait(false);
+            LogUtil.LogInfo("Setting up rod...", Config.IP);
+            await Click(B, 1_500, token).ConfigureAwait(false);
             await Click(DDOWN, 1_500, token).ConfigureAwait(false);
             await PocketInjector.Write40(new Item(2377), token).ConfigureAwait(false);
             await Click(X, 0_800, token).ConfigureAwait(false);
+            await EnsureInventorySlot1(token).ConfigureAwait(false);
             await Click(A, 0_800, token).ConfigureAwait(false);
             await Click(A, 1_800, token).ConfigureAwait(false);
 
@@ -175,6 +177,14 @@ namespace SysBot.ACNHFishing
                 LogUtil.LogInfo("I was too slow...", Config.IP);
         }
 
+        private async Task EnsureInventorySlot1(CancellationToken token)
+        {
+            while (await GetInventorySlotIndex(token).ConfigureAwait(false) > 9) // get on first row
+                await Click(DUP, 0_500, token).ConfigureAwait(false);
+            while (await GetInventorySlotIndex(token).ConfigureAwait(false) != 0) // get to first slot
+                await Click(DLEFT, 0_500, token).ConfigureAwait(false);
+        }
+
         private async Task RestartGame(CancellationToken token)
         {
             // Close game
@@ -248,6 +258,7 @@ namespace SysBot.ACNHFishing
 
         private async Task<bool> IsFishing(CancellationToken token) => (await Connection.ReadBytesAsync((uint)OffsetHelper.IsFishingOffset, 0x1, token).ConfigureAwait(false))[0] == 1;
         private async Task<bool> IsBiting(CancellationToken token) => (await Connection.ReadBytesAsync((uint)OffsetHelper.FishBitingOffset, 0x1, token).ConfigureAwait(false))[0] == 1;
+        private async Task<byte> GetInventorySlotIndex(CancellationToken token) => (await Connection.ReadBytesAsync((uint)OffsetHelper.InventorySlotOffset, 0x1, token).ConfigureAwait(false))[0];
 
         private async Task<bool> GetIsPlayerInventoryValid(uint playerOfs, CancellationToken token)
         {
