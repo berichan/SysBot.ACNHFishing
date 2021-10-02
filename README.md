@@ -2,6 +2,8 @@
 
 Overfishing is killing our oceans. Have a bot do it for you in a video game instead.
 
+Showcase video: https://youtu.be/ZvTofjguGB0
+
 # How to use
 1. Install [sys-botbase](https://github.com/olliz0r/sys-botbase/releases) to your cfw switch running [atmosphere.](https://github.com/Atmosphere-NX/Atmosphere/releases/tag/1.1.1)
 2. Turn on ACNH, be willing to lose your inventory (back it up if need be), move your inventory cursor to the first slot, and run anywhere on your southern shore, ensure your inventory is now closed.
